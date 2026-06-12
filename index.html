@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative Realtime Sketch AI</title>
+    <!-- QRコード生成ライブラリ (QRCode.js) を読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #12131a;
+            --panel-bg: #1c1d26;
+            --accent-color: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --success-color: #10b981;
+            --success-hover: #059669;
+            --danger-color: #ef4444;
+            --text-color: #f1f5f9;
+            --input-bg: #090a0f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h2 {
+            margin: 10px 0 5px 0;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        .control-panel {
+            background: var(--panel-bg);
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: center;
+            justify-content: center;
+            max-width: 1120px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #2d3142;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        input[type="text"] {
+            background: var(--input-bg);
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            width: 280px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        input[type="range"] {
+            accent-color: var(--accent-color);
+            cursor: pointer;
+            width: 120px;
+        }
+
+        .val-display {
+            min-width: 32px;
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 14px;
+        }
+        
+        .color-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="color"] {
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .palette {
+            display: flex;
+            gap: 6px;
+        }
+
+        .color-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.1s, border-color 0.1s;
+        }
+
+        .color-dot:hover {
+            transform: scale(1.1);
+        }
+
+        .color-dot.active {
+            border-color: #fff;
+            transform: scale(1.1);
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 0 20px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-clear {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #dc2626;
+        }
+
+        .btn-share {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-share:hover {
+            background: var(--success-hover);
+        }
+
+        .workspace {
+            display: flex;
+            flex-direction: row;
+            gap: 24px;
+            justify-content: center;
+            align-items: flex-start;
+            max-width: 1120px;
+            width: 100%;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--panel-bg);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid #2d3142;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            flex: 1;
+            max-width: 544px;
+            box-sizing: border-box;
+        }
+
+        .panel h3 {
+            margin: 0 0 12px 0;
+            color: #64748b;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .view-wrapper {
+            position: relative;
+            width: 512px;
+            height: 512px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+
+        canvas, img {
+            width: 101%;
+            height: 101%;
+            display: block;
+        }
+
+        img {
+            object-fit: cover;
+            background: var(--input-bg);
+        }
+
+        /* ポップアップ（モーダル）スタイル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            border: 1px solid #2d3142;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h4 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+        }
+
+        #qrcode-container {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        #qrcode img {
+            width: 200px;
+            height: 200px;
+            background: white;
+        }
+
+        .share-url {
+            background: var(--input-bg);
+            border: 1px solid #334155;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .btn-close {
+            background: #475569;
+            color: white;
+            margin-top: 20px;
+            width: 100%;
+        }
+        .btn-close:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Creative Realtime Canvas</h2>
+    <div class="subtitle">色をつけて描くと、AIがイマジネーションを膨らませてリアルタイムに清書します</div>
+
+    <div class="control-panel">
+        <!-- プロンプト -->
+        <div class="control-group">
+            <label for="prompt">Prompt:</label>
+            <input type="text" id="prompt" value="" placeholder="空欄ならAIにおまかせ（英語入力推奨）...">
+        </div>
+
+        <!-- Strength -->
+        <div class="control-group">
+            <label for="strength">Creativity (自由度):</label>
+            <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.60">
+            <span id="strength-val" class="val-display">0.60</span>
+        </div>
+
+        <!-- カラーピッカー & パレット -->
+        <div class="control-group color-tools">
+            <label>Color:</label>
+            <input type="color" id="color-picker" value="#000000">
+            <div class="palette" id="palette">
+                <div class="color-dot active" style="background: #000000;" data-color="#000000"></div>
+                <div class="color-dot" style="background: #ef4444;" data-color="#ef4444"></div>
+                <div class="color-dot" style="background: #f59e0b;" data-color="#f59e0b"></div>
+                <div class="color-dot" style="background: #10b981;" data-color="#10b981"></div>
+                <div class="color-dot" style="background: #3b82f6;" data-color="#3b82f6"></div>
+                <div class="color-dot" style="background: #8b5cf6;" data-color="#8b5cf6"></div>
+            </div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-share" id="shareBtn">Share</button>
+            <button class="btn btn-clear" id="clearBtn">Clear</button>
+        </div>
+    </div>
+
+    <!-- ワークスペース -->
+    <div class="workspace">
+        <div class="panel">
+            <h3>Sketch Pad</h3>
+            <div class="view-wrapper">
+                <canvas id="canvas" width="512" height="512"></canvas>
+            </div>
+        </div>
+        <div class="panel">
+            <h3>AI Creative Output</h3>
+            <div class="view-wrapper">
+                <img id="resultImage" src="" alt="キャンバスに描き始めるとここに結果が出ます">
+            </div>
+        </div>
+    </div>
+
+    <!-- ポップアップ（モーダル）画面 -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-content">
+            <h4 id="modalStatus">画像をGoogleドライブへ保存中...</h4>
+            <div id="qrcode-container" style="display: none;">
+                <div id="qrcode"></div>
+            </div>
+            <input type="text" id="shareUrl" class="share-url" readonly style="display: none;">
+            <button class="btn btn-close" id="closeModalBtn">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resultImage = document.getElementById('resultImage');
+        const promptInput = document.getElementById('prompt');
+        const strengthInput = document.getElementById('strength');
+        const strengthVal = document.getElementById('strength-val');
+        const clearBtn = document.getElementById('clearBtn');
+        const colorPicker = document.getElementById('color-picker');
+        const palette = document.getElementById('palette');
+        
+        const shareBtn = document.getElementById('shareBtn');
+        const shareModal = document.getElementById('shareModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalStatus = document.getElementById('modalStatus');
+        const qrcodeContainer = document.getElementById('qrcode-container');
+        const shareUrlInput = document.getElementById('shareUrl');
+
+        let isDrawing = false;
+        let currentColor = '#000000';
+        let isGenerating = false;
+        let pendingGeneration = false;
+        let currentResultBlob = null; 
+        let qrcode = null;
+
+        // 🔗 最新のユーザー指定 GAS WebアプリURLに更新しました
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcotL_x55eVARmJO3A6j3-KC-FK9xD6IlyNntskWIbBE8EjHpd_dSM3rftRm4SBgg4/exec"; 
+
+        function initCanvas() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+        initCanvas();
+
+        colorPicker.addEventListener('input', (e) => {
+            currentColor = e.target.value;
+            document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+        });
+
+        palette.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-dot')) {
+                document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+                e.target.classList.add('active');
+                currentColor = e.target.getAttribute('data-color');
+                colorPicker.value = currentColor;
+            }
+        });
+
+        strengthInput.addEventListener('input', (e) => {
+            strengthVal.textContent = parseFloat(e.target.value).toFixed(2);
+            sendImage();
+        });
+
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
+        canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
+        canvas.addEventListener('mouseout', () => { isDrawing = false; ctx.beginPath(); });
+        canvas.addEventListener('mousemove', draw);
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; draw(e.touches[0]); });
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); isDrawing = false; ctx.beginPath(); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            ctx.strokeStyle = currentColor;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            sendImage();
+        }
+
+        promptInput.addEventListener('input', sendImage);
+
+        clearBtn.addEventListener('click', () => {
+            initCanvas();
+            resultImage.src = "";
+            currentResultBlob = null;
+        });
+
+        async function sendImage() {
+            if (isGenerating) { pendingGeneration = true; return; }
+            isGenerating = true;
+
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('image_file', blob, 'sketch.png');
+                formData.append('prompt', promptInput.value);
+                formData.append('strength', strengthInput.value);
+
+                try {
+                    const response = await fetch(`http://${window.location.host}/generate`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (response.ok) {
+                        currentResultBlob = await response.blob();
+                        resultImage.src = URL.createObjectURL(currentResultBlob);
+                    }
+                } catch (error) {
+                    console.error('API Error:', error);
+                } finally {
+                    isGenerating = false;
+                    if (pendingGeneration) { pendingGeneration = false; sendImage(); }
+                }
+            }, 'image/png');
+        }
+
+        // Google Drive (GAS) APIにアップロードして直リンクQRを出す処理
+        shareBtn.addEventListener('click', async () => {
+            if (!currentResultBlob) {
+                alert("まだ画像が生成されていません。キャンバスに何か描いてからシェアしてください。");
+                return;
+            }
+
+            modalStatus.textContent = "画像をGoogleドライブへ保存中...";
+            qrcodeContainer.style.display = "none";
+            shareUrlInput.style.display = "none";
+            shareModal.classList.add('active');
+
+            const reader = new FileReader();
+            reader.readAsDataURL(currentResultBlob);
+            reader.onloadend = async () => {
+                const base64Image = reader.result.split(',')[1];
+                
+                const bodyParams = new URLSearchParams();
+                bodyParams.append('image', base64Image);
+                bodyParams.append('filename', `cat_${Date.now()}.png`);
+                bodyParams.append('mimetype', 'image/png');
+
+                try {
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        body: bodyParams,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error: ${response.status}`);
+                    }
+
+                    const resData = await response.json();
+
+                    if (resData.success) {
+                        const directLink = resData.link; 
+                        
+                        modalStatus.textContent = "スマホでスキャンして保存！";
+                        shareUrlInput.value = directLink;
+                        
+                        document.getElementById('qrcode').innerHTML = "";
+                        qrcode = new QRCode(document.getElementById("qrcode"), {
+                            text: directLink,
+                            width: 200,
+                            height: 200,
+                            colorDark : "#000000",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+
+                        qrcodeContainer.style.display = "inline-block";
+                        shareUrlInput.style.display = "block";
+                    } else {
+                        modalStatus.textContent = "GASエラー: " + resData.error;
+                        console.error(resData);
+                    }
+                } catch (err) {
+                    modalStatus.textContent = "通信エラーが発生しました。";
+                    console.error("GAS API Request Failed:", err);
+                }
+            };
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            shareModal.classList.remove('active');
+        });
+    </script>
+</body>
+</html>
