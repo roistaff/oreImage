@@ -209,7 +209,7 @@
             align-items: center;
         }
 
-        /* 🟢 追加: ペンタブ接続ステータスのスタイル */
+        /* ペンタブ接続ステータスのスタイル */
         .device-status {
             font-size: 11px;
             text-transform: none;
@@ -241,7 +241,6 @@
             display: block;
         }
 
-        /* 🟢 筆圧処理を正常にするため、スクロールなどの標準ジェスチャーをキャンバス上だけ禁止 */
         canvas {
             touch-action: none;
         }
@@ -350,6 +349,12 @@
             <span id="strength-val" class="val-display">0.60</span>
         </div>
 
+        <div class="control-group">
+            <label for="brush-size">Size (太さ):</label>
+            <input type="range" id="brush-size" min="1" max="50" step="1" value="8">
+            <span id="brush-size-val" class="val-display">8</span>
+        </div>
+
         <div class="control-group color-tools">
             <label>Color:</label>
             <input type="color" id="color-picker" value="#000000">
@@ -405,6 +410,8 @@
         const promptInput = document.getElementById('prompt');
         const strengthInput = document.getElementById('strength');
         const strengthVal = document.getElementById('strength-val');
+        const brushSizeInput = document.getElementById('brush-size'); // 🆕 太さスライダー取得
+        const brushSizeVal = document.getElementById('brush-size-val'); // 🆕 太さ数値表示取得
         const clearBtn = document.getElementById('clearBtn');
         const colorPicker = document.getElementById('color-picker');
         const palette = document.getElementById('palette');
@@ -415,7 +422,7 @@
         const modalStatus = document.getElementById('modalStatus');
         const qrcodeContainer = document.getElementById('qrcode-container');
         const shareUrlInput = document.getElementById('shareUrl');
-        const deviceStatus = document.getElementById('deviceStatus'); // 🟢 ステータス要素取得
+        const deviceStatus = document.getElementById('deviceStatus');
 
         let isDrawing = false;
         let currentColor = '#000000';
@@ -427,13 +434,13 @@
         // 🔗 最新のユーザー指定 GAS WebアプリURLに更新しました
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcotL_x55eVARmJO3A6j3-KC-FK9xD6IlyNntskWIbBE8EjHpd_dSM3rftRm4SBgg4/exec"; 
 
-        // 🟢 ベースとなる線の太さ
-        const BASE_LINE_WIDTH = 12;
+        // 🆕 初期値は最初のコードのデフォルト値「8」を適用
+        let currentBrushSize = 8; 
 
         function initCanvas() {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.lineWidth = BASE_LINE_WIDTH;
+            ctx.lineWidth = currentBrushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
         }
@@ -458,7 +465,12 @@
             sendImage();
         });
 
-        // 🟢 旧形式の mouse / touch イベントを完全に排除し、Pointer Events に一本化
+        // 🆕 太さスライダーの変更イベント
+        brushSizeInput.addEventListener('input', (e) => {
+            currentBrushSize = parseInt(e.target.value);
+            brushSizeVal.textContent = currentBrushSize;
+        });
+
         canvas.addEventListener('pointerdown', (e) => { 
             isDrawing = true; 
             updateDeviceStatus(e);
@@ -473,7 +485,6 @@
         canvas.addEventListener('pointerup', () => { isDrawing = false; ctx.beginPath(); });
         canvas.addEventListener('pointerleave', () => { isDrawing = false; ctx.beginPath(); });
 
-        // 🟢 ペンタブの接続状態・ステータス表示を更新する関数
         function updateDeviceStatus(e) {
             if (e.pointerType === 'pen') {
                 deviceStatus.textContent = `Stylus: 検出中 (筆圧: ${Math.round(e.pressure * 100)}%)`;
@@ -490,16 +501,15 @@
             const x = (e.clientX - rect.left) * (canvas.width / rect.width);
             const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-            // 🟢 筆圧(pressure)を利用して線の太さを動的に変更する
-            // ペンタブがない（マウスや指でpressureが0や取得不可の）場合は 0.5 をデフォルト値にしてフォールバック
             let pressure = e.pressure;
             if (e.pointerType === 'mouse' || e.pointerType === 'touch' || pressure === 0) {
+                // ペンタブがない場合は、スライダーで選んだ太さの50%の太さ（一定）で描画
                 pressure = 0.5; 
             }
 
-            // 傾き(tiltX, tiltY)を考慮した表現（今回はおまけで少しだけ線のブレに影響させています。必要に応じてカスタム可能）
-            // 筆圧を元に動的な太さを計算
-            ctx.lineWidth = BASE_LINE_WIDTH * (pressure * 2.0); 
+            // 🆕 スライダーで指定された基準サイズ（currentBrushSize）に筆圧を掛け合わせる
+            // pressureは0.0〜1.0なので、2.0倍することで最大「基準サイズの2倍」まで太くなります
+            ctx.lineWidth = currentBrushSize * (pressure * 2.0); 
 
             ctx.strokeStyle = currentColor;
             ctx.lineTo(x, y);
