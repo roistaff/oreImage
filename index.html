@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Creative Realtime Sketch AI</title>
-    <!-- QRコード生成ライブラリ (QRCode.js) を読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
@@ -204,6 +203,27 @@
             font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 🟢 追加: ペンタブ接続ステータスのスタイル */
+        .device-status {
+            font-size: 11px;
+            text-transform: none;
+            letter-spacing: 0;
+            background: #2a2b36;
+            padding: 4px 8px;
+            border-radius: 20px;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+        }
+        .device-status.pen-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+            border: 1px solid rgba(16, 185, 129, 0.4);
         }
 
         .view-wrapper {
@@ -219,6 +239,11 @@
             width: 101%;
             height: 101%;
             display: block;
+        }
+
+        /* 🟢 筆圧処理を正常にするため、スクロールなどの標準ジェスチャーをキャンバス上だけ禁止 */
+        canvas {
+            touch-action: none;
         }
 
         img {
@@ -314,20 +339,17 @@
     <div class="subtitle">色をつけて描くと、AIがイマジネーションを膨らませてリアルタイムに清書します</div>
 
     <div class="control-panel">
-        <!-- プロンプト -->
         <div class="control-group">
             <label for="prompt">Prompt:</label>
             <input type="text" id="prompt" value="" placeholder="空欄ならAIにおまかせ（英語入力推奨）...">
         </div>
 
-        <!-- Strength -->
         <div class="control-group">
             <label for="strength">Creativity (自由度):</label>
             <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.60">
             <span id="strength-val" class="val-display">0.60</span>
         </div>
 
-        <!-- カラーピッカー & パレット -->
         <div class="control-group color-tools">
             <label>Color:</label>
             <input type="color" id="color-picker" value="#000000">
@@ -347,10 +369,12 @@
         </div>
     </div>
 
-    <!-- ワークスペース -->
     <div class="workspace">
         <div class="panel">
-            <h3>Sketch Pad</h3>
+            <h3>
+                <span>Sketch Pad</span>
+                <span id="deviceStatus" class="device-status">Stylus: 未検出 (Mouse/Touch モード)</span>
+            </h3>
             <div class="view-wrapper">
                 <canvas id="canvas" width="512" height="512"></canvas>
             </div>
@@ -363,7 +387,6 @@
         </div>
     </div>
 
-    <!-- ポップアップ（モーダル）画面 -->
     <div class="modal-overlay" id="shareModal">
         <div class="modal-content">
             <h4 id="modalStatus">画像をGoogleドライブへ保存中...</h4>
@@ -392,6 +415,7 @@
         const modalStatus = document.getElementById('modalStatus');
         const qrcodeContainer = document.getElementById('qrcode-container');
         const shareUrlInput = document.getElementById('shareUrl');
+        const deviceStatus = document.getElementById('deviceStatus'); // 🟢 ステータス要素取得
 
         let isDrawing = false;
         let currentColor = '#000000';
@@ -403,10 +427,13 @@
         // 🔗 最新のユーザー指定 GAS WebアプリURLに更新しました
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcotL_x55eVARmJO3A6j3-KC-FK9xD6IlyNntskWIbBE8EjHpd_dSM3rftRm4SBgg4/exec"; 
 
+        // 🟢 ベースとなる線の太さ
+        const BASE_LINE_WIDTH = 12;
+
         function initCanvas() {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.lineWidth = 8;
+            ctx.lineWidth = BASE_LINE_WIDTH;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
         }
@@ -431,20 +458,48 @@
             sendImage();
         });
 
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; draw(e); });
-        canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
-        canvas.addEventListener('mouseout', () => { isDrawing = false; ctx.beginPath(); });
-        canvas.addEventListener('mousemove', draw);
+        // 🟢 旧形式の mouse / touch イベントを完全に排除し、Pointer Events に一本化
+        canvas.addEventListener('pointerdown', (e) => { 
+            isDrawing = true; 
+            updateDeviceStatus(e);
+            draw(e); 
+        });
+        
+        canvas.addEventListener('pointermove', (e) => {
+            updateDeviceStatus(e);
+            draw(e);
+        });
 
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; draw(e.touches[0]); });
-        canvas.addEventListener('touchend', (e) => { e.preventDefault(); isDrawing = false; ctx.beginPath(); });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+        canvas.addEventListener('pointerup', () => { isDrawing = false; ctx.beginPath(); });
+        canvas.addEventListener('pointerleave', () => { isDrawing = false; ctx.beginPath(); });
+
+        // 🟢 ペンタブの接続状態・ステータス表示を更新する関数
+        function updateDeviceStatus(e) {
+            if (e.pointerType === 'pen') {
+                deviceStatus.textContent = `Stylus: 検出中 (筆圧: ${Math.round(e.pressure * 100)}%)`;
+                deviceStatus.classList.add('pen-active');
+            } else {
+                deviceStatus.textContent = `Stylus: 未検出 (${e.pointerType === 'touch' ? 'Touch' : 'Mouse'} モード)`;
+                deviceStatus.classList.remove('pen-active');
+            }
+        }
 
         function draw(e) {
             if (!isDrawing) return;
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) * (canvas.width / rect.width);
             const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            // 🟢 筆圧(pressure)を利用して線の太さを動的に変更する
+            // ペンタブがない（マウスや指でpressureが0や取得不可の）場合は 0.5 をデフォルト値にしてフォールバック
+            let pressure = e.pressure;
+            if (e.pointerType === 'mouse' || e.pointerType === 'touch' || pressure === 0) {
+                pressure = 0.5; 
+            }
+
+            // 傾き(tiltX, tiltY)を考慮した表現（今回はおまけで少しだけ線のブレに影響させています。必要に応じてカスタム可能）
+            // 筆圧を元に動的な太さを計算
+            ctx.lineWidth = BASE_LINE_WIDTH * (pressure * 2.0); 
 
             ctx.strokeStyle = currentColor;
             ctx.lineTo(x, y);
