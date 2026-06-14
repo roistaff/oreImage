@@ -209,7 +209,6 @@
             align-items: center;
         }
 
-        /* ペンタブ接続ステータスのスタイル */
         .device-status {
             font-size: 11px;
             text-transform: none;
@@ -250,7 +249,6 @@
             background: var(--input-bg);
         }
 
-        /* ポップアップ（モーダル）スタイル */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -345,14 +343,18 @@
 
         <div class="control-group">
             <label for="strength">Creativity (自由度):</label>
-            <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.60">
-            <span id="strength-val" class="val-display">0.60</span>
+            <!-- 🆕 初期値を0.65に変更 -->
+            <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.65">
+            <!-- 🆕 初期表示を0.65に変更 -->
+            <span id="strength-val" class="val-display">0.65</span>
         </div>
 
         <div class="control-group">
             <label for="brush-size">Size (太さ):</label>
-            <input type="range" id="brush-size" min="1" max="50" step="1" value="8">
-            <span id="brush-size-val" class="val-display">8</span>
+            <!-- 🆕 初期値を6に変更 -->
+            <input type="range" id="brush-size" min="1" max="50" step="1" value="6">
+            <!-- 🆕 初期表示を6に変更 -->
+            <span id="brush-size-val" class="val-display">6</span>
         </div>
 
         <div class="control-group color-tools">
@@ -369,8 +371,9 @@
         </div>
 
         <div class="btn-container">
-            <button class="btn btn-share" id="shareBtn">Share</button>
-            <button class="btn btn-clear" id="clearBtn">Clear</button>
+            <!-- 🆕 ボタン名を日本語に変更 -->
+            <button class="btn btn-share" id="shareBtn">シェアする</button>
+            <button class="btn btn-clear" id="clearBtn">クリア</button>
         </div>
     </div>
 
@@ -410,8 +413,8 @@
         const promptInput = document.getElementById('prompt');
         const strengthInput = document.getElementById('strength');
         const strengthVal = document.getElementById('strength-val');
-        const brushSizeInput = document.getElementById('brush-size'); // 🆕 太さスライダー取得
-        const brushSizeVal = document.getElementById('brush-size-val'); // 🆕 太さ数値表示取得
+        const brushSizeInput = document.getElementById('brush-size');
+        const brushSizeVal = document.getElementById('brush-size-val');
         const clearBtn = document.getElementById('clearBtn');
         const colorPicker = document.getElementById('color-picker');
         const palette = document.getElementById('palette');
@@ -431,11 +434,13 @@
         let currentResultBlob = null; 
         let qrcode = null;
 
-        // 🔗 最新のユーザー指定 GAS WebアプリURLに更新しました
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcotL_x55eVARmJO3A6j3-KC-FK9xD6IlyNntskWIbBE8EjHpd_dSM3rftRm4SBgg4/exec"; 
 
-        // 🆕 初期値は最初のコードのデフォルト値「8」を適用
-        let currentBrushSize = 8; 
+        // 🆕 デフォルト値をそれぞれ 0.65 と 6 に設定
+        const DEFAULT_STRENGTH = 0.65;
+        const DEFAULT_BRUSH_SIZE = 6;
+
+        let currentBrushSize = DEFAULT_BRUSH_SIZE; 
 
         function initCanvas() {
             ctx.fillStyle = '#ffffff';
@@ -465,7 +470,6 @@
             sendImage();
         });
 
-        // 🆕 太さスライダーの変更イベント
         brushSizeInput.addEventListener('input', (e) => {
             currentBrushSize = parseInt(e.target.value);
             brushSizeVal.textContent = currentBrushSize;
@@ -503,12 +507,9 @@
 
             let pressure = e.pressure;
             if (e.pointerType === 'mouse' || e.pointerType === 'touch' || pressure === 0) {
-                // ペンタブがない場合は、スライダーで選んだ太さの50%の太さ（一定）で描画
                 pressure = 0.5; 
             }
 
-            // 🆕 スライダーで指定された基準サイズ（currentBrushSize）に筆圧を掛け合わせる
-            // pressureは0.0〜1.0なので、2.0倍することで最大「基準サイズの2倍」まで太くなります
             ctx.lineWidth = currentBrushSize * (pressure * 2.0); 
 
             ctx.strokeStyle = currentColor;
@@ -521,10 +522,26 @@
 
         promptInput.addEventListener('input', sendImage);
 
+        // 🆕 クリアボタンの機能拡張（画像、プロンプト、各種スライダーの初期化）
         clearBtn.addEventListener('click', () => {
+            // キャンバスの初期化
             initCanvas();
+            
+            // 生成画像と管理用Blobのクリア
             resultImage.src = "";
             currentResultBlob = null;
+
+            // プロンプトボックスのクリア
+            promptInput.value = "";
+
+            // 自由度スライダーを指定値（0.65）にリセット
+            strengthInput.value = DEFAULT_STRENGTH;
+            strengthVal.textContent = DEFAULT_STRENGTH.toFixed(2);
+
+            // 太さスライダーを指定値（6）にリセット
+            brushSizeInput.value = DEFAULT_BRUSH_SIZE;
+            brushSizeVal.textContent = DEFAULT_BRUSH_SIZE;
+            currentBrushSize = DEFAULT_BRUSH_SIZE;
         });
 
         async function sendImage() {
@@ -555,7 +572,6 @@
             }, 'image/png');
         }
 
-        // Google Drive (GAS) APIにアップロードして直リンクQRを出す処理
         shareBtn.addEventListener('click', async () => {
             if (!currentResultBlob) {
                 alert("まだ画像が生成されていません。キャンバスに何か描いてからシェアしてください。");
