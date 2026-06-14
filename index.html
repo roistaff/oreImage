@@ -14,6 +14,8 @@
             --success-color: #10b981;
             --success-hover: #059669;
             --danger-color: #ef4444;
+            --secondary-color: #64748b;
+            --secondary-hover: #475569;
             --text-color: #f1f5f9;
             --input-bg: #090a0f;
         }
@@ -171,6 +173,16 @@
 
         .btn-share:hover {
             background: var(--success-hover);
+        }
+
+        /* 🆕 リセットボタン用スタイル */
+        .btn-reset {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: var(--secondary-hover);
         }
 
         .workspace {
@@ -343,17 +355,13 @@
 
         <div class="control-group">
             <label for="strength">Creativity (自由度):</label>
-            <!-- 🆕 初期値を0.65に変更 -->
             <input type="range" id="strength" min="0.1" max="0.95" step="0.05" value="0.65">
-            <!-- 🆕 初期表示を0.65に変更 -->
             <span id="strength-val" class="val-display">0.65</span>
         </div>
 
         <div class="control-group">
             <label for="brush-size">Size (太さ):</label>
-            <!-- 🆕 初期値を6に変更 -->
             <input type="range" id="brush-size" min="1" max="50" step="1" value="6">
-            <!-- 🆕 初期表示を6に変更 -->
             <span id="brush-size-val" class="val-display">6</span>
         </div>
 
@@ -371,9 +379,10 @@
         </div>
 
         <div class="btn-container">
-            <!-- 🆕 ボタン名を日本語に変更 -->
             <button class="btn btn-share" id="shareBtn">シェアする</button>
             <button class="btn btn-clear" id="clearBtn">クリア</button>
+            <!-- 🆕 リセットボタンの追加 -->
+            <button class="btn btn-reset" id="resetBtn">リセット</button>
         </div>
     </div>
 
@@ -416,6 +425,7 @@
         const brushSizeInput = document.getElementById('brush-size');
         const brushSizeVal = document.getElementById('brush-size-val');
         const clearBtn = document.getElementById('clearBtn');
+        const resetBtn = document.getElementById('resetBtn'); // 🆕 リセットボタン取得
         const colorPicker = document.getElementById('color-picker');
         const palette = document.getElementById('palette');
         
@@ -436,7 +446,6 @@
 
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcotL_x55eVARmJO3A6j3-KC-FK9xD6IlyNntskWIbBE8EjHpd_dSM3rftRm4SBgg4/exec"; 
 
-        // 🆕 デフォルト値をそれぞれ 0.65 と 6 に設定
         const DEFAULT_STRENGTH = 0.65;
         const DEFAULT_BRUSH_SIZE = 6;
 
@@ -522,23 +531,28 @@
 
         promptInput.addEventListener('input', sendImage);
 
-        // 🆕 クリアボタンの機能拡張（画像、プロンプト、各種スライダーの初期化）
+        // 🆕 クリアボタン：キャンバスと生成された画像のみをクリアする
         clearBtn.addEventListener('click', () => {
-            // キャンバスの初期化
             initCanvas();
-            
-            // 生成画像と管理用Blobのクリア
+            resultImage.src = "";
+            currentResultBlob = null;
+        });
+
+        // 🆕 リセットボタン：クリアの内容に加え、プロンプトとスライダーもすべて初期化する
+        resetBtn.addEventListener('click', () => {
+            // 1. キャンバスと生成画像をクリア
+            initCanvas();
             resultImage.src = "";
             currentResultBlob = null;
 
-            // プロンプトボックスのクリア
+            // 2. プロンプト入力欄を空にする
             promptInput.value = "";
 
-            // 自由度スライダーを指定値（0.65）にリセット
+            // 3. 自由度スライダーをデフォルト値 (0.65) に戻す
             strengthInput.value = DEFAULT_STRENGTH;
             strengthVal.textContent = DEFAULT_STRENGTH.toFixed(2);
 
-            // 太さスライダーを指定値（6）にリセット
+            // 4. 太さスライダーをデフォルト値 (6) に戻す
             brushSizeInput.value = DEFAULT_BRUSH_SIZE;
             brushSizeVal.textContent = DEFAULT_BRUSH_SIZE;
             currentBrushSize = DEFAULT_BRUSH_SIZE;
